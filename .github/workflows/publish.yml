@@ -1,0 +1,51 @@
+name: publish
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup npm
+        uses: actions/setup-node@v7
+        with:
+          node-version: "26.9.0"
+      
+      - run: npm i
+      
+      - run: npm run build
+        env:
+          VITE_TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          VITE_PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+
+    needs: build
+    
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
