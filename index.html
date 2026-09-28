@@ -1,0 +1,88 @@
+<!doctype html>
+
+<head>
+  <title>Twitch Raffle Helper</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <nav>
+    <div class="navContainer">
+      <span class="title">Twitch Raffle Helper</span>
+      <div class="spacer"></div>
+      <span id="userName"></span>
+      <img class="hidden" id="userAvatar" />
+    </div>
+  </nav>
+
+  <main>
+    <div class="overlay" id="overlay">
+      <div class="overlayContainer">
+        <svg class="spinner" inline-source src="./assets/spinner.svg"></svg>
+      </div>
+    </div>
+
+    <div class="view hidden" id="viewInit"></div>
+
+    <div class="view hidden" id="viewAuth">
+      <button id="authStartButton">Authorize app with Twitch</button>
+    </div>
+
+    <div class="view hidden" id="viewRaffle">
+      <div class="raffleContainer">
+        <div>
+          <div class="raffleParticipants">
+            <span>Participants:</span>
+            <span id="raffleParticipants">0</span>
+          </div>
+          <div class="raffleEntries">
+            <ul id="raffleEntries"></ul>
+          </div>
+        </div>
+
+        <div class="raffleControls">
+          <div>
+            <button id="openRaffleButton">Open raffle</button>
+            <button id="closeRaffleButton" class="hidden">Close raffle</button>
+            <button id="resetRaffleButton" disabled>Reset raffle</button>
+          </div>
+          <div>
+            <span class="font-semibold">Keyword:</span>
+            <input type="text" class="font" id="keywordInput" />
+          </div>
+          <div>
+            <button id="openWheelButton" disabled>
+              Open Wheel Of Names site
+            </button>
+          </div>
+          <div>
+            <button id="copyParticipantsButton" disabled>
+              Copy participants to clipboard
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footerContainer">
+      <span
+        >Made by
+        <a href="https://github.com/Polprzewodnikowy">Polprzewodnikowy</a></span
+      >
+      <span class="px-1">|</span>
+      <span>Not affiliated with <a href="https://twitch.tv">Twitch</a></span>
+      <span class="px-1">|</span>
+      <span
+        >View source code on
+        <a href="https://github.com/Polprzewodnikowy/TwitchRaffleHelper"
+          >GitHub</a
+        ></span
+      >
+    </div>
+  </footer>
+
+  <script src="./src/main.ts" type="module"></script>
+</body>

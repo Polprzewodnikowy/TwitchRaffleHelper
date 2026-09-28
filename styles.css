@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@theme {
+  --color-twitch-purple: #9047ff;
+  --color-twitch-purple-hover: #772ce8;
+  --color-twitch-purple-active: #5c17c5;
+}
+
+html {
+  @apply h-full;
+}
+
+body {
+  @apply flex flex-col h-full max-h-dvh bg-gray-950 text-white;
+}
+
+nav {
+  @apply flex shrink-0 justify-center h-12 border-b border-gray-800 bg-gray-900;
+
+  & > .navContainer {
+    @apply flex grow justify-center items-center px-6 min-w-2xl max-w-4xl font-semibold text-lg;
+
+    & > .title {
+      @apply font-bold text-xl;
+    }
+
+    & > .spacer {
+      @apply grow h-full;
+    }
+
+    & > img {
+      @apply w-8 h-8 ml-4 object-cover rounded-full bg-gray-500 cursor-pointer;
+
+      &:active {
+        @apply brightness-125;
+      }
+    }
+  }
+}
+
+main {
+  @apply flex flex-col self-center p-6 min-h-0 h-full w-full min-w-2xl max-w-4xl;
+}
+
+.view {
+  @apply flex flex-col h-full min-h-0;
+
+  &.hidden {
+    @apply hidden;
+  }
+}
+
+.overlay {
+  @apply z-10 absolute top-0 right-0 w-full h-full;
+  background-color: rgba(1, 1, 1, 0.5);
+
+  & > .overlayContainer {
+    @apply flex justify-center items-center w-full h-full;
+
+    & > .spinner {
+      @apply animate-spin w-32 h-32 fill-twitch-purple text-gray-700;
+    }
+  }
+}
+
+footer {
+  @apply flex shrink-0 justify-center h-12 border-t border-gray-800 bg-gray-900 text-gray-400;
+
+  & > .footerContainer {
+    @apply flex grow justify-center items-center px-6 min-w-2xl max-w-4xl;
+
+    & a {
+      @apply text-gray-300;
+
+      &:hover {
+        @apply text-gray-200;
+      }
+
+      &:active {
+        @apply text-gray-100;
+      }
+    }
+  }
+}
+
+button {
+  @apply px-4 py-1 rounded-full font-semibold bg-twitch-purple select-none;
+
+  &:hover {
+    @apply cursor-pointer bg-twitch-purple-hover;
+  }
+
+  &:active {
+    @apply bg-twitch-purple-active;
+  }
+
+  &:disabled {
+    @apply cursor-auto text-gray-300 bg-gray-600;
+  }
+}
+
+input[type="text"] {
+  @apply flex px-4 py-1 rounded-full font-semibold bg-gray-900 outline outline-gray-600;
+
+  &:focus {
+    @apply outline outline-twitch-purple;
+  }
+
+  &:disabled {
+    @apply pointer-events-none text-gray-300 bg-gray-600;
+
+    &::selection {
+      @apply bg-transparent;
+    }
+  }
+}
+
+ul {
+  @apply flex flex-col-reverse justify-end w-full;
+}
+
+li {
+  @apply flex justify-center px-4 py-0.5 font-semibold;
+
+  &:nth-child(odd) {
+    @apply bg-gray-900;
+  }
+}
+
+.raffleContainer {
+  @apply flex h-full min-h-0 space-x-4;
+
+  & > div {
+    @apply flex flex-col grow shrink basis-0;
+  }
+}
+
+.raffleParticipants {
+  @apply text-base font-semibold mb-4;
+}
+
+.raffleEntries {
+  @apply flex grow border rounded-2xl border-twitch-purple overflow-y-auto overflow-x-hidden;
+}
+
+.raffleControls {
+  @apply space-y-4;
+
+  & > div {
+    @apply flex items-center space-x-4;
+
+    & > button,
+    > input {
+      @apply grow shrink basis-0;
+    }
+  }
+}
