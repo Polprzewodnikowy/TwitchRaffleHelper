@@ -2,7 +2,6 @@ import { convertURLParams, parseHashData } from "./utils";
 
 export interface TwitchAuthData {
   readonly access_token: string;
-  readonly refresh_token: string;
 }
 
 export interface TwitchUser {
@@ -83,22 +82,6 @@ export class TwitchApi {
 
     if (validateResponse.ok) {
       this.token = authData.access_token;
-      return;
-    }
-
-    const refreshResponse = await fetch("https://id.twitch.tv/oauth2/token", {
-      method: "POST",
-      body: convertURLParams({
-        client_id: this.clientId,
-        grant_type: "refresh_token",
-        refresh_token: authData.refresh_token,
-      }),
-    });
-
-    if (refreshResponse.ok) {
-      const data = await refreshResponse.json();
-      this.token = data.access_token;
-      this.saveAuth?.(data);
       return;
     }
 
