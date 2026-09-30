@@ -17,8 +17,11 @@ export interface TwitchSubscription {
 type TwitchErrorCause = "unauthorized" | "other";
 
 export class TwitchError extends Error {
+  cause: TwitchErrorCause;
+
   constructor(cause: TwitchErrorCause) {
-    super(undefined, { cause });
+    super();
+    this.cause = cause;
   }
 }
 
