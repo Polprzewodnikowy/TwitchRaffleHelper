@@ -3,12 +3,27 @@ import convert from "color-convert";
 type Color = [number, number, number];
 
 export class ColorAdjuster {
-  targetLuminance: number;
   private cache: Map<string, string>;
+  private target: number;
 
   constructor(targetLuminance: number) {
-    this.targetLuminance = targetLuminance;
     this.cache = new Map();
+    this.target = 0;
+
+    this.targetLuminance = targetLuminance;
+  }
+
+  set targetLuminance(value: number) {
+    if (value < 0.0 || value > 1.0) {
+      throw new RangeError();
+    }
+
+    this.cache.clear();
+    this.target = value;
+  }
+
+  public get targetLuminance(): number {
+    return this.target;
   }
 
   static getLinear = ([r, g, b]: Color): Color => {
@@ -67,19 +82,18 @@ export class ColorAdjuster {
 
     const luminance = ColorAdjuster.getLuminance(rgb);
 
-    if (luminance < this.targetLuminance) {
-      const rgbAdjusted = ColorAdjuster.adjustLuminance(
-        rgb,
-        this.targetLuminance,
-      );
+    if (luminance >= this.target) {
+      this.cache.set(color, color);
 
-      const hexAdjusted = `#${convert.rgb.hex(rgbAdjusted)}`;
-
-      this.cache.set(color, hexAdjusted);
-
-      return hexAdjusted;
+      return color;
     }
 
-    return color;
+    const rgbAdjusted = ColorAdjuster.adjustLuminance(rgb, this.target);
+
+    const hexAdjusted = `#${convert.rgb.hex(rgbAdjusted)}`;
+
+    this.cache.set(color, hexAdjusted);
+
+    return hexAdjusted;
   };
 }

@@ -37,7 +37,7 @@ export const convertURLParams = (
     Object.entries(params)
       .map(
         ([key, value]) =>
-          `${key}=${encodeURIComponent(Array.isArray(value) ? value.join(join) : value)}`,
+          `${encodeURIComponent(key)}=${encodeURIComponent(Array.isArray(value) ? value.join(join) : value)}`,
       )
       .join("&"),
   );
@@ -48,5 +48,8 @@ export const parseHashData = (hash: string): { [key: string]: any } =>
     .split("&")
     .reduce((params, param) => {
       const [key, value] = param.split("=");
-      return { ...params, [key]: value };
+      return {
+        ...params,
+        [decodeURIComponent(key)]: decodeURIComponent(value),
+      };
     }, {});

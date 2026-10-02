@@ -51,8 +51,7 @@ main {
 }
 
 .overlay {
-  @apply z-10 absolute top-0 right-0 w-full h-full;
-  background-color: rgba(1, 1, 1, 0.5);
+  @apply z-10 absolute top-0 right-0 w-full h-full bg-black/50;
 
   & > .overlayContainer {
     @apply flex justify-center items-center w-full h-full;

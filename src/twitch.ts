@@ -1,7 +1,8 @@
 import { convertURLParams, parseHashData } from "./utils";
 
 export interface TwitchAuthData {
-  readonly access_token: string;
+  readonly access_token?: string;
+  readonly scope?: string;
 }
 
 export interface TwitchUser {
@@ -27,7 +28,7 @@ export class TwitchError extends Error {
 
 export class TwitchApi {
   private clientId: string;
-  private scope: string;
+  private scope: string[];
   private token: string;
 
   user: TwitchUser;
@@ -37,7 +38,7 @@ export class TwitchApi {
 
   constructor(clientId: string, scope: string[]) {
     this.clientId = clientId;
-    this.scope = scope.join(" ");
+    this.scope = scope;
     this.token = "none";
     this.user = { avatar: "none", id: "none", name: "none" };
   }
@@ -58,7 +59,7 @@ export class TwitchApi {
       force_verify: true,
       redirect_uri: redirect,
       response_type: "token",
-      scope: this.scope,
+      scope: this.scope.join(" "),
     };
     return `https://id.twitch.tv/oauth2/authorize?${convertURLParams(params)}`;
   }
@@ -74,8 +75,18 @@ export class TwitchApi {
   async checkAuth() {
     const authData = this.loadAuth?.();
 
-    if (!authData) {
+    if (!(authData && authData.access_token && authData.scope)) {
       throw new TwitchError("unauthorized");
+    }
+
+    const authScope = authData.scope.split(" ");
+
+    for (let permission of this.scope) {
+      if (!authScope.includes(permission)) {
+        this.saveAuth?.();
+
+        throw new TwitchError("unauthorized");
+      }
     }
 
     const validateResponse = await fetch(
@@ -85,6 +96,7 @@ export class TwitchApi {
 
     if (validateResponse.ok) {
       this.token = authData.access_token;
+
       return;
     }
 
