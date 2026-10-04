@@ -119,7 +119,7 @@ ul {
 }
 
 li {
-  @apply flex justify-center px-4 py-0.5 font-semibold;
+  @apply flex justify-center text-center px-4 py-0.5 font-semibold;
 
   &:nth-child(odd) {
     @apply bg-gray-900;

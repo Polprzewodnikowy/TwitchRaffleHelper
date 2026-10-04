@@ -32,7 +32,7 @@ const defaultKeyword = localStorage.getItem("keyword") ?? "!raffle";
 
 const raffle = new Raffle(defaultKeyword);
 
-const colorAdjuster = new ColorAdjuster(0.25);
+const colorAdjuster = new ColorAdjuster(0.7);
 
 const keywordInput = control.addInputHandler(
   "keywordInput",
