@@ -148,21 +148,25 @@ input[type="checkbox"] {
     }
   }
 
+  & + label {
+    @apply cursor-pointer;
+  }
+
   &:disabled {
-    @apply bg-gray-600;
+    @apply bg-gray-600 pointer-events-none;
 
     &::after {
       @apply bg-gray-400;
     }
 
     & + label {
-      @apply text-gray-400;
+      @apply text-gray-400 pointer-events-none;
     }
   }
 }
 
 label {
-  @apply flex cursor-pointer font-semibold;
+  @apply flex font-semibold;
 }
 
 ul {
