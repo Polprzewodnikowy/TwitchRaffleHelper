@@ -34,6 +34,8 @@ const raffle = new Raffle(defaultKeyword);
 
 const colorAdjuster = new ColorAdjuster(0.7);
 
+const raffleEntriesList = control.getUlElement("raffleEntries");
+
 const keywordInput = control.addInputHandler(
   "keywordInput",
   (event) => {
@@ -46,34 +48,48 @@ const keywordInput = control.addInputHandler(
 
 const raffleButtons = {
   open: control.addButtonHandler("openRaffleButton", (event) => {
-    raffle.toggle();
+    raffle.open();
+
     keywordInput.disabled = true;
+
     event.target.show(false);
     raffleButtons.close.show(true);
+
     raffleButtons.reset.disabled = true;
-    raffleButtons.copyWheelURL.disabled = true;
-    raffleButtons.openWheelSite.disabled = true;
+
+    raffleButtons.copyParticipants.disabled = true;
+    raffleButtons.openWheelSite.setAttribute("disabled", "");
+
+    raffleEntriesList.classList.remove("editable");
   }),
 
   close: control.addButtonHandler("closeRaffleButton", (event) => {
-    const empty = raffle.participants === 0;
-    raffle.toggle();
+    raffle.close();
+
     keywordInput.disabled = false;
+
     event.target.show(false);
     raffleButtons.open.show(true);
-    raffleButtons.reset.disabled = empty;
-    raffleButtons.copyWheelURL.disabled = empty;
-    raffleButtons.openWheelSite.disabled = empty;
+
+    raffleButtons.reset.disabled = raffle.isEmpty;
+
+    raffleButtons.copyParticipants.disabled = raffle.isEmpty;
+    if (!raffle.isEmpty) {
+      raffleButtons.openWheelSite.removeAttribute("disabled");
+    }
+
+    raffleEntriesList.classList.add("editable");
   }),
 
   reset: control.addButtonHandler("resetRaffleButton", () => {
     raffle.reset();
+
     raffleButtons.reset.disabled = true;
-    raffleButtons.copyWheelURL.disabled = true;
-    raffleButtons.openWheelSite.disabled = true;
+    raffleButtons.copyParticipants.disabled = true;
+    raffleButtons.openWheelSite.setAttribute("disabled", "");
   }),
 
-  copyWheelURL: control.addButtonHandler("copyParticipantsButton", () => {
+  copyParticipants: control.addButtonHandler("copyParticipantsButton", () => {
     navigator.clipboard.writeText(
       raffle
         .get()
@@ -82,9 +98,39 @@ const raffleButtons = {
     );
   }),
 
-  openWheelSite: control.addButtonHandler("openWheelButton", () => {
-    window.open(raffle.getWheelURL());
+  openWheelSite: control.addAnchorHandler("openWheelButton", (event) => {
+    event.preventDefault();
+    window.open(event.target.href);
   }),
+};
+
+raffle.onBroadcasterCommand = (message) => {
+  const parts = message.split(" ");
+
+  if (parts.length === 0) {
+    return;
+  }
+
+  const command = parts[0];
+
+  if (command === "key" && !raffle.isOpen) {
+    const keyword = parts.slice(1).join(" ");
+    keywordInput.value = keyword;
+    keywordInput.dispatchEvent(new Event("input"));
+    raffleButtons.open.click();
+  }
+
+  if (command === "open" && !raffle.isOpen) {
+    raffleButtons.open.click();
+  }
+
+  if (command === "close" && raffle.isOpen) {
+    raffleButtons.close.click();
+  }
+
+  if (command === "reset" && !raffle.isOpen) {
+    raffleButtons.reset.click();
+  }
 };
 
 raffle.onEntriesChanged = (entries) => {
@@ -93,10 +139,24 @@ raffle.onEntriesChanged = (entries) => {
   control.setListEntries(
     "raffleEntries",
     entries.map(({ color, name }) => ({
-      color: colorAdjuster.getReadableColor(color || "#FFFFFF"),
+      color: colorAdjuster.getReadableColor(color),
       text: name,
+      button: {
+        text: "-",
+        title: "Delete participant",
+        onClick: () => {
+          raffle.deleteEntry(name);
+          if (raffle.participants === 0) {
+            raffleButtons.reset.disabled = true;
+            raffleButtons.copyParticipants.disabled = true;
+            raffleButtons.openWheelSite.setAttribute("disabled", "");
+          }
+        },
+      },
     })),
   );
+
+  raffleButtons.openWheelSite.href = raffle.getWheelURL();
 };
 
 const setUserData = (name?: string, avatar?: string) => {
@@ -113,8 +173,13 @@ const setUserData = (name?: string, avatar?: string) => {
 };
 
 control.getImgElement("userAvatar").onclick = () => {
-  twitchEventSub?.close({ onDisconnect: false });
+  if (twitchEventSub) {
+    twitchEventSub.onClose = undefined;
+    twitchEventSub.close();
+  }
+
   clearTimeout(twitchReconnectTimeout);
+
   twitchStatus.update("unauthorized");
 };
 
@@ -134,22 +199,20 @@ twitchApi.loadAuth = () => {
   } catch {}
 };
 
-const twitchMessageSub = async () => {
-  interface ChannelChatMessageCondition {
-    readonly broadcaster_user_id: string;
-    readonly user_id: string;
-  }
-  interface ChannelChatMessageEvent {
-    readonly broadcaster_user_id: string;
-    readonly chatter_user_id: string;
-    readonly chatter_user_login: string;
-    readonly chatter_user_name: string;
-    readonly color: string;
-    readonly message: { readonly text: string };
-  }
-  return twitchEventSub?.add<
-    ChannelChatMessageCondition,
-    ChannelChatMessageEvent
+const twitchMessageSub = async () =>
+  twitchEventSub?.add<
+    {
+      readonly broadcaster_user_id: string;
+      readonly user_id: string;
+    },
+    {
+      readonly broadcaster_user_id: string;
+      readonly chatter_user_id: string;
+      readonly chatter_user_login: string;
+      readonly chatter_user_name: string;
+      readonly color: string;
+      readonly message: { readonly text: string };
+    }
   >(
     {
       type: "channel.chat.message",
@@ -168,18 +231,21 @@ const twitchMessageSub = async () => {
         name: event.chatter_user_name,
       }),
   );
-};
 
 const twitchRun = async () => {
   if (twitchStatus.get() !== "disconnected") {
     return;
   }
 
-  const onError = ({ error }: { error?: unknown }) => {
+  const onError = (error?: unknown) => {
     const isUnauthorized =
       error instanceof TwitchError && error.cause === "unauthorized";
 
-    twitchEventSub?.close({ onDisconnect: false });
+    if (twitchEventSub) {
+      twitchEventSub.onClose = undefined;
+      twitchEventSub.close();
+    }
+
     twitchEventSub = null;
 
     twitchStatus.update(isUnauthorized ? "unauthorized" : "disconnected");
@@ -202,29 +268,27 @@ const twitchRun = async () => {
 
     twitchEventSub = new TwitchEventSub(twitchApi);
 
-    twitchEventSub.onConnect = async () => {
-      try {
-        await Promise.all([twitchMessageSub()]);
+    twitchEventSub.onOpen = async () => {
+      await Promise.all([twitchMessageSub()]);
 
-        twitchStatus.update("connected");
-      } catch (error) {
-        onError({ error });
-      }
+      twitchStatus.update("connected");
     };
 
-    twitchEventSub.onDisconnect = () => {
-      onError({});
+    twitchEventSub.onClose = (error) => {
+      onError(error);
+    };
+
+    twitchEventSub.onHandlerError = (error) => {
+      console.error(error);
     };
   } catch (error) {
-    onError({ error });
+    onError(error);
   }
 };
 
-control.addButtonHandler("authStartButton", () => {
-  const url = twitchApi.startAuth(import.meta.env.VITE_PUBLIC_URL);
-
-  window.location.href = url;
-});
+control.getAnchorElement("authStartButton").href = twitchApi.getAuthURL(
+  import.meta.env.VITE_PUBLIC_URL,
+);
 
 twitchStatus.subscribe((status) => {
   if (status === "unauthorized") {
@@ -250,7 +314,7 @@ twitchStatus.subscribe((status) => {
   control.showView(view);
 });
 
-const run = async () => {
+(async () => {
   try {
     twitchApi.updateAuth(hash);
 
@@ -259,9 +323,7 @@ const run = async () => {
     twitchStatus.update("disconnected");
 
     twitchRun();
-  } catch {
+  } catch (error) {
     twitchStatus.update("unauthorized");
   }
-};
-
-run();
+})();

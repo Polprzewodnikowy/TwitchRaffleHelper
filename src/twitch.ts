@@ -1,4 +1,4 @@
-import { convertURLParams, parseHashData } from "./utils";
+import { formatURLParams, ParamValue, parseURLParams } from "./utils";
 
 export interface TwitchAuthData {
   readonly access_token?: string;
@@ -20,9 +20,9 @@ type TwitchErrorCause = "unauthorized" | "other";
 export class TwitchError extends Error {
   cause: TwitchErrorCause;
 
-  constructor(cause: TwitchErrorCause) {
+  constructor(cause?: TwitchErrorCause) {
     super();
-    this.cause = cause;
+    this.cause = cause ?? "other";
   }
 }
 
@@ -47,21 +47,22 @@ export class TwitchApi {
     const users = await this.getUsers();
 
     if (users.length < 1) {
-      throw new TwitchError("other");
+      throw new TwitchError();
     }
 
     this.user = users[0];
   }
 
-  startAuth(redirect: string): string {
-    const params = {
+  getAuthURL(redirect: string): string {
+    const params = formatURLParams({
       client_id: this.clientId,
       force_verify: true,
       redirect_uri: redirect,
       response_type: "token",
       scope: this.scope.join(" "),
-    };
-    return `https://id.twitch.tv/oauth2/authorize?${convertURLParams(params)}`;
+    });
+
+    return `https://id.twitch.tv/oauth2/authorize?${params}`;
   }
 
   updateAuth(hash: string) {
@@ -69,7 +70,19 @@ export class TwitchApi {
       return;
     }
 
-    this.saveAuth?.(parseHashData(hash) as TwitchAuthData);
+    const params = parseURLParams(hash.slice(1));
+
+    if (
+      typeof params.access_token !== "string" ||
+      typeof params.scope !== "string"
+    ) {
+      return;
+    }
+
+    this.saveAuth?.({
+      access_token: params.access_token,
+      scope: params.scope,
+    });
   }
 
   async checkAuth() {
@@ -106,21 +119,20 @@ export class TwitchApi {
   }
 
   private async call<
-    P extends { [key: string]: boolean | number | string } = {},
-    D extends object = {},
-    R extends object = {},
+    Params extends Record<string, ParamValue> | void = void,
+    Data extends Record<string, unknown> | void = void,
+    Response extends Record<string, unknown> | undefined = undefined,
   >(
     endpoint: string,
     options?: {
+      data?: Data;
       method?: string;
-      data?: D;
-      params?: P;
-      retry?: boolean;
+      params?: Params;
     },
-  ): Promise<R> {
-    const params = convertURLParams(options?.params).toString();
+  ): Promise<Response> {
+    const params = formatURLParams(options?.params);
 
-    const query = params.length > 0 ? `?${params}` : "";
+    const query = params.size > 0 ? `?${params}` : "";
 
     const url = `https://api.twitch.tv/helix/${endpoint}${query}`;
 
@@ -136,31 +148,36 @@ export class TwitchApi {
 
     if (!response.ok) {
       if (response.status === 401) {
-        if (!options?.retry) {
-          await this.checkAuth();
-          return this.call<P, D, R>(endpoint, { ...options, retry: true });
-        } else {
-          throw new TwitchError("unauthorized");
-        }
+        throw new TwitchError("unauthorized");
       } else {
-        throw new TwitchError("other");
+        throw new TwitchError();
       }
     }
 
-    return response.json();
+    const text = await response.text();
+
+    if (text.length > 0) {
+      return JSON.parse(text);
+    } else {
+      return undefined as Response;
+    }
   }
 
   async getUsers(login?: string): Promise<TwitchUser[]> {
-    interface Response {
-      readonly data: {
-        readonly id: string;
-        readonly display_name: string;
-        readonly profile_image_url: string;
-      }[];
-    }
-
-    const users = await this.call<{}, {}, Response>("users", {
-      params: login ? { login } : undefined,
+    const users = await this.call<
+      {
+        readonly login?: string;
+      },
+      void,
+      {
+        readonly data: {
+          readonly id: string;
+          readonly display_name: string;
+          readonly profile_image_url: string;
+        }[];
+      }
+    >("users", {
+      params: { login },
     });
 
     return users.data.map(({ display_name, id, profile_image_url }) => ({
@@ -170,7 +187,7 @@ export class TwitchApi {
     }));
   }
 
-  async subscribe<T extends object>({
+  async subscribe<T extends Record<string, unknown>>({
     type,
     version,
     condition,
@@ -181,37 +198,34 @@ export class TwitchApi {
     condition: T;
     sessionId: string;
   }): Promise<TwitchSubscription> {
-    interface Request {
-      readonly type: string;
-      readonly version: string;
-      readonly condition: T;
-      readonly transport: {
-        method: string;
-        session_id: string;
-      };
-    }
-
-    interface Response {
-      readonly data: {
-        readonly id: string;
-      }[];
-    }
-
-    const subscription = await this.call<{}, Request, Response>(
-      "eventsub/subscriptions",
+    const subscription = await this.call<
+      void,
       {
-        method: "POST",
-        data: {
-          type,
-          version,
-          condition,
-          transport: {
-            method: "websocket",
-            session_id: sessionId,
-          },
+        readonly type: string;
+        readonly version: string;
+        readonly condition: T;
+        readonly transport: {
+          method: string;
+          session_id: string;
+        };
+      },
+      {
+        readonly data: {
+          readonly id: string;
+        }[];
+      }
+    >("eventsub/subscriptions", {
+      method: "POST",
+      data: {
+        type,
+        version,
+        condition,
+        transport: {
+          method: "websocket",
+          session_id: sessionId,
         },
       },
-    );
+    });
 
     return { id: subscription.data[0].id };
   }
@@ -222,52 +236,45 @@ export class TwitchEventSub {
   private DISCONNECT_TIMEOUT = 15;
 
   private twitchApi: TwitchApi;
+
   private socket: WebSocket;
   private oldSocket?: WebSocket;
+
   private sessionId: string;
   private handlers: { [id: string]: (event: any) => Promise<void> | void };
+
   private timeout?: number;
 
-  onConnect?: () => void;
-  onDisconnect?: () => void;
+  onOpen?: () => void;
+  onClose?: (error?: unknown) => void;
+  onHandlerError?: (error?: unknown) => void;
 
   constructor(twitchApi: TwitchApi) {
     this.twitchApi = twitchApi;
-    this.socket = new WebSocket(
-      `wss://eventsub.wss.twitch.tv/ws?keepalive_timeout_seconds=${this.KEEPALIVE_TIMEOUT}`,
-    );
-    this.socket.onmessage = this.onMessage.bind(this);
-    this.socket.onclose = this.onClose.bind(this);
-    this.socket.onerror = this.onClose.bind(this);
+
+    const params = formatURLParams({
+      keepalive_timeout_seconds: this.KEEPALIVE_TIMEOUT,
+    });
+    this.socket = new WebSocket(`wss://eventsub.wss.twitch.tv/ws?${params}`);
+
+    this.socket.onmessage = this.socketOnMessage.bind(this);
+    this.socket.onclose = this.socketOnClose.bind(this);
+    this.socket.onerror = this.socketOnClose.bind(this);
+
     this.sessionId = "none";
     this.handlers = {};
   }
 
-  close({ onDisconnect }: { onDisconnect: boolean } = { onDisconnect: true }) {
-    clearTimeout(this.timeout);
-    this.timeout = undefined;
-
-    if (this.oldSocket) {
-      this.oldSocket.onclose = null;
-      this.oldSocket.onerror = null;
-      this.oldSocket.close();
-    }
-
-    if (!onDisconnect) {
-      this.socket.onclose = null;
-      this.socket.onerror = null;
-    }
-
-    this.socket.close();
-  }
-
-  async add<C extends object = {}, R extends object = {}>(
+  async add<
+    Condition extends Record<string, unknown> = Record<string, unknown>,
+    EventData extends Record<string, unknown> = Record<string, unknown>,
+  >(
     params: {
       type: string;
       version: string;
-      condition: C;
+      condition: Condition;
     },
-    handler: (event: R) => Promise<void> | void,
+    handler: (event: EventData) => Promise<void> | void,
   ) {
     const { id } = await this.twitchApi.subscribe({
       ...params,
@@ -277,15 +284,42 @@ export class TwitchEventSub {
     this.handlers[id] = handler;
   }
 
+  close() {
+    this.socketClose();
+  }
+
   private refreshTimeout() {
     clearTimeout(this.timeout);
     this.timeout = setTimeout(() => {
-      this.close({ onDisconnect: false });
-      this.onDisconnect?.();
+      this.socketClose();
     }, this.DISCONNECT_TIMEOUT * 1000);
   }
 
-  private async onMessage(event: MessageEvent) {
+  private socketClose(error?: unknown) {
+    clearTimeout(this.timeout);
+    this.timeout = undefined;
+
+    if (this.oldSocket) {
+      this.oldSocket.onmessage = null;
+      this.oldSocket.onclose = null;
+      this.oldSocket.onerror = null;
+
+      this.oldSocket.close();
+    }
+
+    this.socket.onmessage = null;
+
+    if (error) {
+      this.socket.onclose = null;
+      this.socket.onerror = null;
+
+      this.onClose?.(error);
+    }
+
+    this.socket.close();
+  }
+
+  private async socketOnMessage(event: MessageEvent) {
     this.refreshTimeout();
 
     try {
@@ -300,7 +334,8 @@ export class TwitchEventSub {
         } = payload;
 
         this.sessionId = session_id;
-        this.onConnect?.();
+
+        this.onOpen?.();
       }
 
       if (message_type === "session_reconnect") {
@@ -309,10 +344,12 @@ export class TwitchEventSub {
         } = payload;
 
         this.oldSocket = this.socket;
+
         this.socket = new WebSocket(reconnect_url);
-        this.socket.onmessage = this.onReconnectMessage.bind(this);
-        this.socket.onclose = this.onClose.bind(this);
-        this.socket.onerror = this.onClose.bind(this);
+
+        this.socket.onmessage = this.socketOnReconnectMessage.bind(this);
+        this.socket.onclose = this.socketOnClose.bind(this);
+        this.socket.onerror = this.socketOnClose.bind(this);
       }
 
       if (message_type === "notification") {
@@ -322,7 +359,11 @@ export class TwitchEventSub {
         } = payload;
 
         if (id in this.handlers) {
-          await this.handlers[id](event);
+          try {
+            await this.handlers[id](event);
+          } catch (error) {
+            this.onHandlerError?.(error);
+          }
         }
       }
 
@@ -331,16 +372,22 @@ export class TwitchEventSub {
           subscription: { status },
         } = payload;
 
-        if (status === "authorization_revoked") {
-          this.close();
+        if (["user_removed", "authorization_revoked"].includes(status)) {
+          this.socket.onmessage = null;
+          this.socket.onclose = null;
+          this.socket.onerror = null;
+
+          this.socketClose();
+
+          this.onClose?.(new TwitchError("unauthorized"));
         }
       }
-    } catch {
-      this.close();
+    } catch (error) {
+      this.socketClose(error);
     }
   }
 
-  private onReconnectMessage(event: MessageEvent) {
+  private socketOnReconnectMessage(event: MessageEvent) {
     this.refreshTimeout();
 
     try {
@@ -349,21 +396,22 @@ export class TwitchEventSub {
       } = JSON.parse(event.data);
 
       if (message_type === "session_welcome") {
-        this.socket.onmessage = this.onMessage.bind(this);
+        this.socket.onmessage = this.socketOnMessage.bind(this);
+
         if (this.oldSocket) {
           this.oldSocket.onclose = null;
-          this.oldSocket.onerror = null;
+
           this.oldSocket.close();
         }
       } else {
-        this.close();
+        this.socketClose();
       }
-    } catch {
-      this.close();
+    } catch (error) {
+      this.socketClose(error);
     }
   }
 
-  private onClose() {
-    this.onDisconnect?.();
+  private socketOnClose() {
+    this.onClose?.();
   }
 }

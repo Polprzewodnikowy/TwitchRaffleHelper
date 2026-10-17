@@ -17,6 +17,22 @@ export class Control {
     }
   }
 
+  addAnchorHandler(
+    id: string,
+    handler: (event: PointerEvent & { target: HTMLAnchorElement }) => void,
+  ) {
+    const el = document.getElementById(id) as HTMLAnchorElement;
+
+    if (!(el instanceof HTMLAnchorElement)) {
+      throw new ControlError();
+    }
+
+    el.onclick = (event) =>
+      handler(event as PointerEvent & { target: HTMLAnchorElement });
+
+    return el;
+  }
+
   addButtonHandler(
     id: string,
     handler: (
@@ -64,6 +80,16 @@ export class Control {
     return el;
   }
 
+  getAnchorElement(id: string) {
+    const el = document.getElementById(id);
+
+    if (!(el instanceof HTMLAnchorElement)) {
+      throw new ControlError();
+    }
+
+    return el;
+  }
+
   getDivElement(id: string) {
     const el = document.getElementById(id);
 
@@ -94,20 +120,52 @@ export class Control {
     return el;
   }
 
-  setListEntries(id: string, entries: { text: string; color?: string }[]) {
+  getUlElement(id: string) {
     const el = document.getElementById(id);
 
     if (!(el instanceof HTMLUListElement)) {
       throw new ControlError();
     }
 
+    return el;
+  }
+
+  setListEntries(
+    id: string,
+    entries: {
+      text: string;
+      color?: string;
+      button?: {
+        text: string;
+        title?: string;
+        onClick: (event: PointerEvent) => void;
+      };
+    }[],
+  ) {
+    const el = this.getUlElement(id);
+
     el.replaceChildren(
       ...entries.map((entry) => {
         const listItem = document.createElement("li");
-        listItem.innerText = entry.text;
+
+        const spanElement = document.createElement("span");
+        spanElement.innerText = entry.text;
+        listItem.appendChild(spanElement);
+
+        if (entry.button) {
+          const buttonElement = document.createElement("button");
+          buttonElement.innerText = "-";
+          buttonElement.title = entry.button.title || "";
+          buttonElement.addEventListener("click", (event) =>
+            entry.button?.onClick(event),
+          );
+          listItem.appendChild(buttonElement);
+        }
+
         if (entry.color) {
           listItem.style.color = entry.color;
         }
+
         return listItem;
       }),
     );

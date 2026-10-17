@@ -82,8 +82,9 @@ footer {
   }
 }
 
-button {
-  @apply px-4 py-1 rounded-full font-semibold bg-twitch-purple select-none;
+button,
+.button {
+  @apply px-4 py-1 rounded-full font-semibold text-center bg-twitch-purple select-none;
 
   &:hover {
     @apply cursor-pointer bg-twitch-purple-hover;
@@ -93,8 +94,9 @@ button {
     @apply bg-twitch-purple-active;
   }
 
-  &:disabled {
-    @apply cursor-auto text-gray-300 bg-gray-600;
+  &:disabled,
+  &[disabled] {
+    @apply pointer-events-none cursor-auto text-gray-300 bg-gray-600;
   }
 }
 
@@ -116,13 +118,33 @@ input[type="text"] {
 
 ul {
   @apply flex flex-col-reverse justify-end w-full;
-}
 
-li {
-  @apply flex justify-center text-center px-4 py-0.5 font-semibold;
+  & > li {
+    @apply flex relative justify-center items-center text-center px-4 py-0.5 font-semibold;
 
-  &:nth-child(odd) {
-    @apply bg-gray-900;
+    &:nth-child(odd) {
+      @apply bg-gray-900;
+    }
+
+    & > button {
+      @apply hidden justify-center text-sm absolute right-0 p-0 mr-1 w-5 h-5 text-white bg-red-500;
+    }
+  }
+
+  &.editable {
+    & > li:hover {
+      & > button {
+        @apply flex;
+
+        &:hover {
+          @apply bg-red-400;
+        }
+
+        &:active {
+          @apply bg-red-300;
+        }
+      }
+    }
   }
 }
 
@@ -148,9 +170,22 @@ li {
   & > div {
     @apply flex items-center space-x-4;
 
-    & > button,
+    & > a,
+    > button,
     > input {
       @apply grow shrink basis-0;
+    }
+  }
+
+  & > .chatControlHelp {
+    @apply flex flex-col items-start text-gray-300 space-y-1 mt-auto;
+
+    & > h1 {
+      @apply text-base;
+    }
+
+    & > div {
+      @apply flex flex-col items-start text-sm;
     }
   }
 }

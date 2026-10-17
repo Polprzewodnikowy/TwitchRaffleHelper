@@ -26,7 +26,7 @@
     <div class="view hidden" id="viewInit"></div>
 
     <div class="view hidden" id="viewAuth">
-      <button id="authStartButton">Authorize app with Twitch</button>
+      <a class="button" id="authStartButton">Authorize app with Twitch</a>
     </div>
 
     <div class="view hidden" id="viewRaffle">
@@ -37,7 +37,7 @@
             <span id="raffleParticipants">0</span>
           </div>
           <div class="raffleEntries">
-            <ul id="raffleEntries"></ul>
+            <ul class="editable" id="raffleEntries"></ul>
           </div>
         </div>
 
@@ -52,14 +52,36 @@
             <input type="text" id="keywordInput" />
           </div>
           <div>
-            <button id="openWheelButton" disabled>
+            <a class="button" id="openWheelButton" disabled>
               Open Wheel Of Names site
-            </button>
+            </a>
           </div>
           <div>
             <button id="copyParticipantsButton" disabled>
               Copy participants to clipboard
             </button>
+          </div>
+          <div class="chatControlHelp">
+            <h1>Commands cheat sheet (broadcaster only):</h1>
+            <div>
+              <span
+                ><code
+                  ><strong>!key <i>[keyword]</i></strong></code
+                >
+                - Open raffle with keyword</span
+              >
+              <span
+                ><code><strong>!open</strong></code> - Open raffle with current
+                keyword</span
+              >
+              <span
+                ><code><strong>!close</strong></code> - Close raffle</span
+              >
+              <span
+                ><code><strong>!reset</strong></code> - Clear participants
+                list</span
+              >
+            </div>
           </div>
         </div>
       </div>

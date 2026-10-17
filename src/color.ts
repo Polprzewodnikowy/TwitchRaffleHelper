@@ -24,7 +24,7 @@ export class ColorAdjuster {
     return this.target;
   }
 
-  getReadableColor = (color: string): string => {
+  getReadableColor = (color: string = "#FFFFFF"): string => {
     const cached = this.cache.get(color);
 
     if (cached) {

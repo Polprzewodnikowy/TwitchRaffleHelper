@@ -1,4 +1,4 @@
-import { convertURLParams } from "./utils";
+import { formatURLParams } from "./utils";
 
 interface WheelOfNamesParams {
   readonly backgroundImage?: string;
@@ -45,6 +45,10 @@ class Entries {
     return true;
   }
 
+  deleteEntry(name: string) {
+    this.entries.delete(name);
+  }
+
   resetEntries() {
     if (this.entries.size === 0) {
       return;
@@ -73,6 +77,7 @@ export class Raffle {
   private raffleEntries: Entries;
   private raffleKeyword: string = "";
 
+  onBroadcasterCommand?: (command: string) => void;
   onEntriesChanged?: (entries: ({ name: string } & Entry)[]) => void;
 
   constructor(keyword: string) {
@@ -89,8 +94,12 @@ export class Raffle {
     return this.entries.size;
   }
 
+  get isEmpty() {
+    return this.participants === 0;
+  }
+
   private set keyword(keyword: string) {
-    this.raffleKeyword = keyword.trim().toLowerCase();
+    this.raffleKeyword = keyword.trim().toLowerCase().replace(/^\!/, "");
   }
 
   private get keyword() {
@@ -112,8 +121,12 @@ export class Raffle {
     return this.entriesArray;
   }
 
-  toggle() {
-    this.disabled = !this.disabled;
+  open() {
+    this.disabled = false;
+  }
+
+  close() {
+    this.disabled = true;
   }
 
   reset() {
@@ -144,17 +157,23 @@ export class Raffle {
     this.keyword = keyword;
   }
 
+  deleteEntry(name: string) {
+    if (this.isOpen) {
+      throw new Error("Cannot modify entries while raffle is open");
+    }
+
+    this.raffleEntries.deleteEntry(name);
+
+    this.onEntriesChanged?.(this.entriesArray);
+  }
+
   getWheelURL({
     editable,
     ...params
   }: { editable?: boolean } & Omit<WheelOfNamesParams, "entries"> = {}) {
-    if (this.participants === 0) {
-      throw new Error("There are no entries to be raffled");
-    }
-
-    const urlParams = convertURLParams({
+    const urlParams = formatURLParams({
       ...params,
-      entries: this.entriesArray.map(({ name }) => name),
+      entries: this.entriesArray.map(({ name }) => name).join(","),
     });
 
     return `https://wheelofnames.com/${editable ? "" : "view"}?${urlParams}`;
@@ -173,20 +192,25 @@ export class Raffle {
     message: string;
     name: string;
   }) {
-    if (this.disabled) {
+    if (isBroadcaster) {
+      if (message.startsWith("!")) {
+        this.onBroadcasterCommand?.(message.slice(1));
+      }
       return;
     }
 
-    if (isBroadcaster) {
+    if (!this.isOpen) {
       return;
     }
 
     if (this.keyword.length > 0) {
-      if (!message.trim().toLowerCase().startsWith(this.keyword)) {
+      const clean = message.trim().toLowerCase().replace(/^\!/, "");
+
+      if (!clean.startsWith(this.keyword)) {
         return;
       }
 
-      if (!["", " "].includes(message.charAt(this.keyword.length))) {
+      if (!["", " "].includes(clean.charAt(this.keyword.length))) {
         return;
       }
     }
