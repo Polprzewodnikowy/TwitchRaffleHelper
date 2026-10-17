@@ -116,6 +116,55 @@ input[type="text"] {
   }
 }
 
+input[type="checkbox"] {
+  @apply appearance-none cursor-pointer relative h-6 w-12 my-1 py-0.5 rounded-full bg-twitch-purple-active;
+
+  &::after {
+    content: "";
+    @apply flex absolute h-5 w-5 mx-0.5 rounded-full bg-gray-400 transition-transform duration-150;
+  }
+
+  &:hover {
+    @apply bg-twitch-purple-hover;
+  }
+
+  &:active {
+    @apply bg-twitch-purple-active;
+  }
+
+  &:checked {
+    @apply bg-twitch-purple;
+
+    &:hover {
+      @apply bg-twitch-purple-hover;
+    }
+
+    &:active {
+      @apply bg-twitch-purple;
+    }
+
+    &::after {
+      @apply translate-x-6 bg-gray-300;
+    }
+  }
+
+  &:disabled {
+    @apply bg-gray-600;
+
+    &::after {
+      @apply bg-gray-400;
+    }
+
+    & + label {
+      @apply text-gray-400;
+    }
+  }
+}
+
+label {
+  @apply flex cursor-pointer font-semibold;
+}
+
 ul {
   @apply flex flex-col-reverse justify-end w-full;
 
@@ -172,13 +221,13 @@ ul {
 
     & > a,
     > button,
-    > input {
+    > input[type="text"] {
       @apply grow shrink basis-0;
     }
   }
 
   & > .chatControlHelp {
-    @apply flex flex-col items-start text-gray-300 space-y-1 mt-auto;
+    @apply flex flex-col items-start text-gray-300 space-y-1;
 
     & > h1 {
       @apply text-base;

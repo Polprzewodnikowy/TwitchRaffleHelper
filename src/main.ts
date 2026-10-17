@@ -46,6 +46,16 @@ const keywordInput = control.addInputHandler(
   defaultKeyword,
 );
 
+const enableDeleteToggle = control.addInputHandler("enableDelete", (event) => {
+  if (!raffle.isOpen) {
+    if (event.target.checked) {
+      raffleEntriesList.classList.add("editable");
+    } else {
+      raffleEntriesList.classList.remove("editable");
+    }
+  }
+});
+
 const raffleButtons = {
   open: control.addButtonHandler("openRaffleButton", (event) => {
     raffle.open();
@@ -59,6 +69,7 @@ const raffleButtons = {
 
     raffleButtons.copyParticipants.disabled = true;
     raffleButtons.openWheelSite.setAttribute("disabled", "");
+    enableDeleteToggle.disabled = true;
 
     raffleEntriesList.classList.remove("editable");
   }),
@@ -77,8 +88,11 @@ const raffleButtons = {
     if (!raffle.isEmpty) {
       raffleButtons.openWheelSite.removeAttribute("disabled");
     }
+    enableDeleteToggle.disabled = false;
 
-    raffleEntriesList.classList.add("editable");
+    if (enableDeleteToggle.checked) {
+      raffleEntriesList.classList.add("editable");
+    }
   }),
 
   reset: control.addButtonHandler("resetRaffleButton", () => {
