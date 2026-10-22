@@ -170,12 +170,12 @@ label {
 }
 
 ul {
-  @apply flex flex-col-reverse justify-end w-full;
+  @apply flex flex-col w-full;
 
   & > li {
     @apply flex relative justify-center items-center text-center px-4 py-0.5 font-semibold;
 
-    &:nth-child(odd) {
+    &:nth-last-child(odd) {
       @apply bg-gray-900;
     }
 

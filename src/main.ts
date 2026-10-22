@@ -103,14 +103,21 @@ const raffleButtons = {
     raffleButtons.openWheelSite.setAttribute("disabled", "");
   }),
 
-  copyParticipants: control.addButtonHandler("copyParticipantsButton", () => {
-    navigator.clipboard.writeText(
-      raffle
-        .get()
-        .map(({ name }) => name)
-        .join("\n"),
-    );
-  }),
+  copyParticipants: control.addButtonHandler(
+    "copyParticipantsButton",
+    async () => {
+      try {
+        await navigator.clipboard.writeText(
+          raffle
+            .get()
+            .map(({ name }) => name)
+            .join("\n"),
+        );
+      } catch (error) {
+        console.error("Couldn't write participants to the clipboard", error);
+      }
+    },
+  ),
 
   openWheelSite: control.addAnchorHandler("openWheelButton", (event) => {
     event.preventDefault();
@@ -152,7 +159,7 @@ raffle.onEntriesChanged = (entries) => {
 
   control.setListEntries(
     "raffleEntries",
-    entries.map(({ color, name }) => ({
+    entries.toReversed().map(({ color, name }) => ({
       color: colorAdjuster.getReadableColor(color),
       text: name,
       button: {
